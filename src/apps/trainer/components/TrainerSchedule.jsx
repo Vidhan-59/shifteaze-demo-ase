@@ -1,5 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from "react";
 import { COLOR, RADIUS, SHADOW, TYPE } from "../theme/tokens";
+import { TODAY_DATE } from "../demoClock.js";
+import ColleagueRecommendations, { colleagueName } from "./ColleagueRecommendations.jsx";
 import { TrainerInitials } from "../trainerContext.jsx";
 import {
   Calendar,
@@ -44,8 +46,8 @@ const statusAccent = (session) => {
 // Months definition (Sunday-first for standard calendar layout)
 const MONTHS_DATA = [
   { id: "2026-08", name: "August 2026", shortName: "Aug 2026", daysInMonth: 31, startDayOffset: 6, isCurrent: false },
-  { id: "2026-09", name: "September 2026", shortName: "Sep 2026", daysInMonth: 30, startDayOffset: 2, isCurrent: true },
-  { id: "2026-10", name: "October 2026", shortName: "Oct 2026", daysInMonth: 31, startDayOffset: 4, isCurrent: false },
+  { id: "2026-09", name: "September 2026", shortName: "Sep 2026", daysInMonth: 30, startDayOffset: 2, isCurrent: false },
+  { id: "2026-10", name: "October 2026", shortName: "Oct 2026", daysInMonth: 31, startDayOffset: 4, isCurrent: true },
   // Room for rosters published from the web dashboard further ahead.
   { id: "2026-11", name: "November 2026", shortName: "Nov 2026", daysInMonth: 30, startDayOffset: 0, isCurrent: false },
   { id: "2026-12", name: "December 2026", shortName: "Dec 2026", daysInMonth: 31, startDayOffset: 2, isCurrent: false },
@@ -62,7 +64,7 @@ export default function TrainerSchedule({
   isManualMode = false,
   isWholeMonthConfirmed = false,
   onConfirmAll,
-  cycleLabel = "September 2026",
+  cycleLabel = "",
   cyclePendingCount,
   onContinueToApp,
   onOpenNotifications,
@@ -71,7 +73,7 @@ export default function TrainerSchedule({
   themeMode = "white", // "white" | "dark"
 }) {
   const isWhite = themeMode === "white";
-  const [activeMonthIndex, setActiveMonthIndex] = useState(1); // September 2026
+  const [activeMonthIndex, setActiveMonthIndex] = useState(() => Math.max(0, MONTHS_DATA.findIndex((m) => (selectedDate || TODAY_DATE).startsWith(m.id))));
   const [statusFilter, setStatusFilter] = useState("all"); // "all" | "pending" | "confirmed" | "denied"
   const [viewMode, setViewMode] = useState("day"); // "day" | "all-month"
 
@@ -83,6 +85,7 @@ export default function TrainerSchedule({
   const [denialReasonText, setDenialReasonText] = useState("");
   const [denialPreset, setDenialPreset] = useState("");
   const [denialError, setDenialError] = useState("");
+  const [denialNominee, setDenialNominee] = useState(null);
 
   // Long-press date select (startup flow)
   const [selectedDates, setSelectedDates] = useState([]);
@@ -153,13 +156,13 @@ export default function TrainerSchedule({
   };
 
   const handleGoToToday = () => {
-    setActiveMonthIndex(1); // September 2026
-    setSelectedDate("2026-09-17");
+    setActiveMonthIndex(MONTHS_DATA.findIndex((m) => TODAY_DATE.startsWith(m.id)));
+    setSelectedDate(TODAY_DATE);
   };
 
   // Compute 7 days of the week around selectedDate (Mon - Sun)
   const weekDays = useMemo(() => {
-    const baseDateStr = selectedDate || "2026-09-17";
+    const baseDateStr = selectedDate || TODAY_DATE;
     const parts = baseDateStr.split("-").map(Number);
     const current = new Date(parts[0], parts[1] - 1, parts[2]);
 
@@ -210,7 +213,7 @@ export default function TrainerSchedule({
 
   // Navigate by week
   const handlePrevWeek = () => {
-    const [y, m, d] = (selectedDate || "2026-09-17").split("-").map(Number);
+    const [y, m, d] = (selectedDate || TODAY_DATE).split("-").map(Number);
     const curr = new Date(y, m - 1, d);
     curr.setDate(curr.getDate() - 7);
     const newIso = `${curr.getFullYear()}-${String(curr.getMonth() + 1).padStart(2, "0")}-${String(curr.getDate()).padStart(2, "0")}`;
@@ -218,7 +221,7 @@ export default function TrainerSchedule({
   };
 
   const handleNextWeek = () => {
-    const [y, m, d] = (selectedDate || "2026-09-17").split("-").map(Number);
+    const [y, m, d] = (selectedDate || TODAY_DATE).split("-").map(Number);
     const curr = new Date(y, m - 1, d);
     curr.setDate(curr.getDate() + 7);
     const newIso = `${curr.getFullYear()}-${String(curr.getMonth() + 1).padStart(2, "0")}-${String(curr.getDate()).padStart(2, "0")}`;
@@ -236,22 +239,30 @@ export default function TrainerSchedule({
     return COLOR.primary;
   };
 
+  // After answering a session from its details sheet, move straight on to the
+  // next pending session that day (a date can hold several) instead of leaving
+  // the answered one open on top of the list; close the sheet when none is left.
+  const advanceDetailsAfter = (session, message) => {
+    if (!selectedSessionForDetails || selectedSessionForDetails.id !== session.id) { showToast(message); return; }
+    const next = sessions
+      .filter((s) => s.date === session.date && s.status === "pending" && s.id !== session.id)
+      .sort((a, b) => (a.start || "").localeCompare(b.start || ""))[0];
+    setSelectedSessionForDetails(next ?? null);
+    showToast(next ? `${message} · next: ${next.label || next.sessionType}` : message);
+  };
+
   // Confirm Individual Session (Section 11)
   const handleConfirmSingleSession = (e, session) => {
     if (e) e.stopPropagation();
     onUpdateSessionStatus(session.id, "confirmed", null);
-
-    // Update selected session details modal if open
-    if (selectedSessionForDetails && selectedSessionForDetails.id === session.id) {
-      setSelectedSessionForDetails((prev) => ({ ...prev, status: "confirmed" }));
-    }
-    showToast("Session confirmed");
+    advanceDetailsAfter(session, "Session confirmed");
   };
 
   // Open Deny Modal (Section 12)
   const handleOpenDenyModal = (e, session) => {
     if (e) e.stopPropagation();
     setDenialTargetSession(session);
+    setDenialNominee(null);
     setDenialPreset(session.denialReason || "");
     setDenialReasonText(session.denialReason || "");
     setDenialError("");
@@ -266,17 +277,9 @@ export default function TrainerSchedule({
     }
 
     if (denialTargetSession) {
-      onUpdateSessionStatus(denialTargetSession.id, "denied", finalReason);
+      onUpdateSessionStatus(denialTargetSession.id, "denied", finalReason, denialNominee);
 
-      // Update selected session details modal if open
-      if (selectedSessionForDetails && selectedSessionForDetails.id === denialTargetSession.id) {
-        setSelectedSessionForDetails((prev) => ({
-          ...prev,
-          status: "denied",
-          denialReason: finalReason,
-        }));
-      }
-      showToast("Session denied");
+      advanceDetailsAfter(denialTargetSession, denialNominee ? `Session declined — recommended ${colleagueName(denialNominee)}` : "Session declined");
     }
 
     setDenialTargetSession(null);
@@ -290,8 +293,8 @@ export default function TrainerSchedule({
   // session on the selected dates in one go.
   const pendingOn = (dateIso) => monthSessions.filter((s) => s.date === dateIso && s.status === "pending");
   const selectedPending = useMemo(
-    () => monthSessions.filter((s) => s.status === "pending" && selectedDates.includes(s.date)),
-    [monthSessions, selectedDates]
+    () => sessions.filter((s) => s.status === "pending" && selectedDates.includes(s.date)),
+    [sessions, selectedDates]
   );
   const selectMode = isStartupFlow && selectedDates.length > 0;
   // Under the calendar: the focused day normally, or every session about to be confirmed while selecting
@@ -322,6 +325,9 @@ export default function TrainerSchedule({
     selectedPending.forEach((s) => onUpdateSessionStatus(s.id, "confirmed", null));
     showToast(`${selectedPending.length} session${selectedPending.length > 1 ? "s" : ""} confirmed on ${selectedDates.length} date${selectedDates.length > 1 ? "s" : ""}`);
     setSelectedDates([]);
+    // Startup flow: confirming a selection finishes the review and lands on Home;
+    // anything still pending stays confirmable from the Schedule tab.
+    if (isStartupFlow && onContinueToApp) onContinueToApp();
   };
 
   // Format date readable
@@ -647,7 +653,7 @@ export default function TrainerSchedule({
             const dateIso = `${currentMonthMeta.id}-${String(dayNum).padStart(2, "0")}`;
             const isPicked = selectMode && selectedDates.includes(dateIso);
             const isSelected = !selectMode && selectedDate === dateIso;
-            const isToday = currentMonthMeta.isCurrent && dayNum === 17;
+            const isToday = dateIso === TODAY_DATE;
             const daySessionsForDate = monthSessions.filter((s) => s.date === dateIso);
 
             return (
@@ -774,7 +780,7 @@ export default function TrainerSchedule({
               <div style={{ ...TYPE.bodyMedium, color: isWhite ? COLOR.textSecondary : "#94A3B8" }}>
                 No sessions on {formatDateLabel(selectedDate)}
               </div>
-              {selectedDate !== "2026-09-17" && (
+              {selectedDate !== TODAY_DATE && (
                 <button
                   type="button"
                   onClick={handleGoToToday}
@@ -1270,6 +1276,8 @@ export default function TrainerSchedule({
               borderRadius: RADIUS.modal,
               padding: "22px 20px",
               boxShadow: SHADOW.modal,
+              maxHeight: "88%",
+              overflowY: "auto",
               display: "flex",
               flexDirection: "column",
               gap: 14,
@@ -1396,6 +1404,8 @@ export default function TrainerSchedule({
                 </div>
               )}
             </div>
+
+            <ColleagueRecommendations session={denialTargetSession} value={denialNominee} onChange={setDenialNominee} />
 
             {/* Buttons: Cancel & Submit Denial */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1.3fr", gap: 10, marginTop: 4 }}>

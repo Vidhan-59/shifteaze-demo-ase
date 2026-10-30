@@ -57,8 +57,10 @@ import TrainerHelpDesk from "./components/TrainerHelpDesk.jsx";
 import TrainerAttendance from "./components/TrainerAttendance.jsx";
 import StartupScheduleConfirmation from "./components/StartupScheduleConfirmation.jsx";
 import TrainerAuctionScreen from "./components/TrainerAuctionScreen.jsx";
+import ColleagueRecommendations, { colleagueName } from "./components/ColleagueRecommendations.jsx";
 import TrainerSignIn from "./components/TrainerSignIn.jsx";
 import { TrainerContext, TrainerInitials } from "./trainerContext.jsx";
+import { TODAY_DATE, DEMO_CYCLE_START, inDemoCycle, formatLongDate } from "./demoClock.js";
 import { readInbox, subscribeInbox, inboxFor, readReceipts, saveReceipts } from "../../shared/mobileInbox.js";
 
 // Built-in demo month for the Ports account only; a signed-out app keeps it as the backdrop.
@@ -66,9 +68,9 @@ const usesDemoData = (acct) => !acct || !!acct.seedDemoSchedule;
 
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 const MONTH_SHORT = MONTH_NAMES.map((m) => m.slice(0, 3));
-// "October 2026" when the cycle sits in one month, else "28 Sep – 3 Oct 2026".
-function cycleLabelFor(demoData, sessions) {
-  if (demoData || !sessions.length) return "September 2026";
+// "October 2026" when the cycle sits in one month, else "30 Oct – 30 Nov 2026".
+function cycleLabelFor(sessions) {
+  if (!sessions.length) { const [y, m] = TODAY_DATE.split("-").map(Number); return `${MONTH_NAMES[m - 1]} ${y}`; }
   const dates = sessions.map((s) => s.date).sort();
   const [y1, m1, d1] = dates[0].split("-").map(Number);
   const [y2, m2, d2] = dates[dates.length - 1].split("-").map(Number);
@@ -106,33 +108,34 @@ const timeAgo = (iso) => {
    - Contextual Notifications in Schedule and Session Details
    ====================================================================== */
 
-// -- Full Month Data (September 2026, 30 Days) ------------------------
+// -- Demo schedule cycle (30 Oct – 30 Nov 2026) ------------------------
 const FULL_MONTH_LECTURES = [
-  // --- 24 SESSIONS FOR SEPTEMBER 2026 (INITIAL STATE: ALL PENDING — trainer must confirm) ---
-  { id: "LEC-0101", label: "RTG Crane Automation & Control Systems", sessionType: "Technical Training", category: "Technical", client: "John Doe", date: "2026-09-01", dateLabel: "Tue, 01 Sep", dayName: "Tuesday", dayNum: 1, start: "09:00", end: "11:00", time: "09:00 AM - 11:00 AM", dur: 120, site: "Kochi Site", room: "Sim Bay B204", learners: 16, capacity: 20, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
-  { id: "LEC-0102", label: "Port Safety Induction & HSE Standards", sessionType: "Safety Induction", category: "Safety", client: "Sarah Patel", date: "2026-09-01", dateLabel: "Tue, 01 Sep", dayName: "Tuesday", dayNum: 1, start: "14:00", end: "16:00", time: "02:00 PM - 04:00 PM", dur: 120, site: "Kochi Site", room: "Main Auditorium", learners: 28, capacity: 30, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
-  { id: "LEC-0301", label: "Heavy Container Stacking Precision", sessionType: "Operations Training", category: "Technical", client: "Priya Nair", date: "2026-09-03", dateLabel: "Thu, 03 Sep", dayName: "Thursday", dayNum: 3, start: "09:30", end: "11:30", time: "09:30 AM - 11:30 AM", dur: 120, site: "Kochi Site", room: "Simulator Bay 1", learners: 12, capacity: 15, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
-  { id: "LEC-0401", label: "Hazardous Cargo Identification (IMDG)", sessionType: "Safety Training", category: "Safety", client: "Amit Verma", date: "2026-09-04", dateLabel: "Fri, 04 Sep", dayName: "Friday", dayNum: 4, start: "10:00", end: "12:00", time: "10:00 AM - 12:00 PM", dur: 120, site: "Kochi Site", room: "Hazmat Wing C", learners: 18, capacity: 20, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
-  { id: "LEC-0501", label: "Soft Skills & Team Leadership in Ops", sessionType: "Leadership Workshop", category: "Soft Skills", client: "Vikram Singh", date: "2026-09-05", dateLabel: "Sat, 05 Sep", dayName: "Saturday", dayNum: 5, start: "10:00", end: "12:00", time: "10:00 AM - 12:00 PM", dur: 120, site: "Kochi Site", room: "Outdoor Driving Track", learners: 16, capacity: 20, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
-  { id: "LEC-0701", label: "Tugboat Mooring Safety & Line Handling", sessionType: "Marine Operations", category: "Marine", client: "Ananya Rao", date: "2026-09-07", dateLabel: "Mon, 07 Sep", dayName: "Monday", dayNum: 7, start: "09:00", end: "11:30", time: "09:00 AM - 11:30 AM", dur: 150, site: "Kochi Site", room: "Berth 4 Pier", learners: 15, capacity: 20, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
-  { id: "LEC-0801", label: "STS Quay Crane Operation Basics", sessionType: "Technical Training", category: "Technical", client: "David Miller", date: "2026-09-08", dateLabel: "Tue, 08 Sep", dayName: "Tuesday", dayNum: 8, start: "09:00", end: "11:30", time: "09:00 AM - 11:30 AM", dur: 150, site: "Kochi Site", room: "Sim Bay 2", learners: 12, capacity: 15, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
-  { id: "LEC-0901", label: "Berth Logistics & Vessel Scheduling", sessionType: "Logistics Training", category: "Logistics", client: "Fatima Al-Mansoor", date: "2026-09-09", dateLabel: "Wed, 09 Sep", dayName: "Wednesday", dayNum: 9, start: "10:30", end: "12:30", time: "10:30 AM - 12:30 PM", dur: 120, site: "Kochi Site", room: "TOS Lab 102", learners: 20, capacity: 25, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
-  { id: "LEC-1001", label: "Hydraulic Fluids & Pressure Testing", sessionType: "Technical Training", category: "Technical", client: "Kevin Chen", date: "2026-09-10", dateLabel: "Thu, 10 Sep", dayName: "Thursday", dayNum: 10, start: "14:00", end: "16:00", time: "02:00 PM - 04:00 PM", dur: 120, site: "Kochi Site", room: "Maintenance Pit 1", learners: 14, capacity: 16, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
-  { id: "LEC-1101", label: "Conflict Resolution & Crew Communication", sessionType: "Soft Skills", category: "Soft Skills", client: "Neha Gupta", date: "2026-09-11", dateLabel: "Fri, 11 Sep", dayName: "Friday", dayNum: 11, start: "09:30", end: "11:30", time: "09:30 AM - 11:30 AM", dur: 120, site: "Kochi Site", room: "Training Room 301", learners: 22, capacity: 25, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
-  { id: "LEC-1201", label: "Container Lashing & Twistlock Security", sessionType: "Operations Training", category: "Technical", client: "Suresh Menon", date: "2026-09-12", dateLabel: "Sat, 12 Sep", dayName: "Saturday", dayNum: 12, start: "10:00", end: "12:30", time: "10:00 AM - 12:30 PM", dur: 150, site: "Kochi Site", room: "Vessel Deck Mockup", learners: 18, capacity: 20, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
-  { id: "LEC-1401", label: "RTG Diagnostics & Electrical Interlocks", sessionType: "Technical Training", category: "Technical", client: "Rajesh Kulkarni", date: "2026-09-14", dateLabel: "Mon, 14 Sep", dayName: "Monday", dayNum: 14, start: "13:00", end: "15:30", time: "01:00 PM - 03:30 PM", dur: 150, site: "Kochi Site", room: "Electrical Workshop", learners: 14, capacity: 16, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
-  { id: "LEC-1701", label: "RTG Crane Automation & Control Systems", sessionType: "Technical Training", category: "Technical", client: "Elena Rostova", date: "2026-09-17", dateLabel: "Thu, 17 Sep", dayName: "Thursday", dayNum: 17, start: "09:00", end: "11:00", time: "09:00 AM - 11:00 AM", dur: 120, site: "Kochi Site", room: "Sim Bay B204", learners: 16, capacity: 20, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
-  { id: "LEC-1801", label: "Safety Induction & HSE Standards", sessionType: "Safety Induction", category: "Safety", client: "Marcus Vance", date: "2026-09-18", dateLabel: "Fri, 18 Sep", dayName: "Friday", dayNum: 18, start: "09:30", end: "11:30", time: "09:30 AM - 11:30 AM", dur: 120, site: "Kochi Site", room: "Main Training Hall", learners: 26, capacity: 30, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
-  { id: "LEC-1901", label: "Quality Fundamentals Workshop", sessionType: "Quality Standards", category: "Quality", client: "Aisha Siddiqui", date: "2026-09-19", dateLabel: "Sat, 19 Sep", dayName: "Saturday", dayNum: 19, start: "10:00", end: "12:00", time: "10:00 AM - 12:00 PM", dur: 120, site: "Kochi Site", room: "Boardroom 2", learners: 15, capacity: 20, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
-  { id: "LEC-2001", label: "Harbor Tug Maneuver & Escort Drills", sessionType: "Marine Training", category: "Marine", client: "Carlos Mendez", date: "2026-09-20", dateLabel: "Sun, 20 Sep", dayName: "Sunday", dayNum: 20, start: "11:00", end: "13:30", time: "11:00 AM - 01:30 PM", dur: 150, site: "Kochi Site", room: "Marine Ops Basin", learners: 10, capacity: 12, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
-  { id: "LEC-2101", label: "RTG Heavy Lifter Advanced Simulation", sessionType: "Technical Training", category: "Technical", client: "Deepa Krishnan", date: "2026-09-21", dateLabel: "Mon, 21 Sep", dayName: "Monday", dayNum: 21, start: "09:00", end: "11:30", time: "09:00 AM - 11:30 AM", dur: 150, site: "Kochi Site", room: "Sim Bay 1", learners: 14, capacity: 16, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
-  { id: "LEC-2201", label: "High-Voltage Shore Power Connectivity", sessionType: "Technical Training", category: "Technical", client: "Arjun Das", date: "2026-09-22", dateLabel: "Tue, 22 Sep", dayName: "Tuesday", dayNum: 22, start: "10:00", end: "12:00", time: "10:00 AM - 12:00 PM", dur: 120, site: "Kochi Site", room: "Cold Ironing Substation", learners: 12, capacity: 15, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
-  { id: "LEC-2301", label: "Automated Gate OCR & License Plate Audit", sessionType: "Logistics Training", category: "Logistics", client: "Pooja Sharma", date: "2026-09-23", dateLabel: "Wed, 23 Sep", dayName: "Wednesday", dayNum: 23, start: "14:00", end: "16:00", time: "02:00 PM - 04:00 PM", dur: 120, site: "Kochi Site", room: "North Ingate Cabin", learners: 16, capacity: 20, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
-  { id: "LEC-2401", label: "Personal Training - Fall Arrest Systems", sessionType: "Personal Training", category: "Safety", client: "John Doe", date: "2026-09-24", dateLabel: "Thu, 24 Sep", dayName: "Thursday", dayNum: 24, start: "18:00", end: "19:00", time: "06:00 PM - 07:00 PM", dur: 60, site: "Kochi Site", room: "Tower Rig Rigging Yard", learners: 1, capacity: 1, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
-  { id: "LEC-2402", label: "Personal Training - Crane Anti-Sway", sessionType: "Personal Training", category: "Technical", client: "Sarah Patel", date: "2026-09-24", dateLabel: "Thu, 24 Sep", dayName: "Thursday", dayNum: 24, start: "19:00", end: "20:00", time: "07:00 PM - 08:00 PM", dur: 60, site: "Kochi Site", room: "Simulator Lab A", learners: 1, capacity: 1, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
-  { id: "LEC-2501", label: "Personal Training - Electric Forklift", sessionType: "Personal Training", category: "Technical", client: "Rahul Shah", date: "2026-09-25", dateLabel: "Fri, 25 Sep", dayName: "Friday", dayNum: 25, start: "18:00", end: "19:00", time: "06:00 PM - 07:00 PM", dur: 60, site: "Kochi Site", room: "Yard Workshop 3", learners: 1, capacity: 1, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
-  { id: "LEC-2601", label: "Root Cause Analysis for Yard Incidents", sessionType: "Safety Training", category: "Safety", client: "Operations Crew", date: "2026-09-26", dateLabel: "Sat, 26 Sep", dayName: "Saturday", dayNum: 26, start: "11:00", end: "13:00", time: "11:00 AM - 01:00 PM", dur: 120, site: "Kochi Site", room: "HSE Conference Suite", learners: 20, capacity: 24, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
-  { id: "LEC-2701", label: "Mobile Harbor Crane Multi-Rope Hoisting", sessionType: "Technical Training", category: "Technical", client: "Terminal Staff", date: "2026-09-27", dateLabel: "Sun, 27 Sep", dayName: "Sunday", dayNum: 27, start: "13:30", end: "15:30", time: "01:30 PM - 03:30 PM", dur: 120, site: "Kochi Site", room: "Heavy Lift Berth 1", learners: 12, capacity: 15, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
+  // --- THE DEMO CYCLE, 30 OCT – 30 NOV 2026 (INITIAL STATE: ALL PENDING — trainer must confirm) ---
+  { id: "LEC-0101", label: "RTG Crane Automation & Control Systems", sessionType: "Technical Training", category: "Technical", client: "John Doe", date: "2026-10-31", dateLabel: "Sat, 31 Oct", dayName: "Saturday", dayNum: 31, start: "09:00", end: "11:00", time: "09:00 AM - 11:00 AM", dur: 120, site: "Kochi Site", room: "Sim Bay B204", learners: 16, capacity: 20, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
+  { id: "LEC-0102", label: "Port Safety Induction & HSE Standards", sessionType: "Safety Induction", category: "Safety", client: "Sarah Patel", date: "2026-10-31", dateLabel: "Sat, 31 Oct", dayName: "Saturday", dayNum: 31, start: "14:00", end: "16:00", time: "02:00 PM - 04:00 PM", dur: 120, site: "Kochi Site", room: "Main Auditorium", learners: 28, capacity: 30, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
+  { id: "LEC-0301", label: "Heavy Container Stacking Precision", sessionType: "Operations Training", category: "Technical", client: "Priya Nair", date: "2026-11-02", dateLabel: "Mon, 02 Nov", dayName: "Monday", dayNum: 2, start: "09:30", end: "11:30", time: "09:30 AM - 11:30 AM", dur: 120, site: "Kochi Site", room: "Simulator Bay 1", learners: 12, capacity: 15, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
+  { id: "LEC-0401", label: "Hazardous Cargo Identification (IMDG)", sessionType: "Safety Training", category: "Safety", client: "Amit Verma", date: "2026-11-03", dateLabel: "Tue, 03 Nov", dayName: "Tuesday", dayNum: 3, start: "10:00", end: "12:00", time: "10:00 AM - 12:00 PM", dur: 120, site: "Kochi Site", room: "Hazmat Wing C", learners: 18, capacity: 20, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
+  { id: "LEC-0501", label: "Soft Skills & Team Leadership in Ops", sessionType: "Leadership Workshop", category: "Soft Skills", client: "Vikram Singh", date: "2026-11-05", dateLabel: "Thu, 05 Nov", dayName: "Thursday", dayNum: 5, start: "10:00", end: "12:00", time: "10:00 AM - 12:00 PM", dur: 120, site: "Kochi Site", room: "Outdoor Driving Track", learners: 16, capacity: 20, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
+  { id: "LEC-0701", label: "Tugboat Mooring Safety & Line Handling", sessionType: "Marine Operations", category: "Marine", client: "Ananya Rao", date: "2026-11-06", dateLabel: "Fri, 06 Nov", dayName: "Friday", dayNum: 6, start: "09:00", end: "11:30", time: "09:00 AM - 11:30 AM", dur: 150, site: "Kochi Site", room: "Berth 4 Pier", learners: 15, capacity: 20, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
+  { id: "LEC-0801", label: "STS Quay Crane Operation Basics", sessionType: "Technical Training", category: "Technical", client: "David Miller", date: "2026-11-07", dateLabel: "Sat, 07 Nov", dayName: "Saturday", dayNum: 7, start: "09:00", end: "11:30", time: "09:00 AM - 11:30 AM", dur: 150, site: "Kochi Site", room: "Sim Bay 2", learners: 12, capacity: 15, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
+  { id: "LEC-0901", label: "Berth Logistics & Vessel Scheduling", sessionType: "Logistics Training", category: "Logistics", client: "Fatima Al-Mansoor", date: "2026-11-09", dateLabel: "Mon, 09 Nov", dayName: "Monday", dayNum: 9, start: "10:30", end: "12:30", time: "10:30 AM - 12:30 PM", dur: 120, site: "Kochi Site", room: "TOS Lab 102", learners: 20, capacity: 25, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
+  { id: "LEC-1001", label: "Hydraulic Fluids & Pressure Testing", sessionType: "Technical Training", category: "Technical", client: "Kevin Chen", date: "2026-11-11", dateLabel: "Wed, 11 Nov", dayName: "Wednesday", dayNum: 11, start: "14:00", end: "16:00", time: "02:00 PM - 04:00 PM", dur: 120, site: "Kochi Site", room: "Maintenance Pit 1", learners: 14, capacity: 16, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
+  { id: "LEC-1101", label: "Conflict Resolution & Crew Communication", sessionType: "Soft Skills", category: "Soft Skills", client: "Neha Gupta", date: "2026-11-12", dateLabel: "Thu, 12 Nov", dayName: "Thursday", dayNum: 12, start: "09:30", end: "11:30", time: "09:30 AM - 11:30 AM", dur: 120, site: "Kochi Site", room: "Training Room 301", learners: 22, capacity: 25, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
+  { id: "LEC-1201", label: "Container Lashing & Twistlock Security", sessionType: "Operations Training", category: "Technical", client: "Suresh Menon", date: "2026-11-14", dateLabel: "Sat, 14 Nov", dayName: "Saturday", dayNum: 14, start: "10:00", end: "12:30", time: "10:00 AM - 12:30 PM", dur: 150, site: "Kochi Site", room: "Vessel Deck Mockup", learners: 18, capacity: 20, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
+  { id: "LEC-1401", label: "RTG Diagnostics & Electrical Interlocks", sessionType: "Technical Training", category: "Technical", client: "Rajesh Kulkarni", date: "2026-11-16", dateLabel: "Mon, 16 Nov", dayName: "Monday", dayNum: 16, start: "13:00", end: "15:30", time: "01:00 PM - 03:30 PM", dur: 150, site: "Kochi Site", room: "Electrical Workshop", learners: 14, capacity: 16, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
+  { id: "LEC-1701", label: "RTG Crane Automation & Control Systems", sessionType: "Technical Training", category: "Technical", client: "Elena Rostova", date: "2026-10-30", dateLabel: "Fri, 30 Oct", dayName: "Friday", dayNum: 30, start: "09:00", end: "11:00", time: "09:00 AM - 11:00 AM", dur: 120, site: "Kochi Site", room: "Sim Bay B204", learners: 16, capacity: 20, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
+  { id: "LEC-1702", label: "Crane Safety Refresher", sessionType: "Safety Training", category: "Safety", client: "Marcus Vance", date: "2026-10-30", dateLabel: "Fri, 30 Oct", dayName: "Friday", dayNum: 30, start: "14:00", end: "16:00", time: "02:00 PM - 04:00 PM", dur: 120, site: "Kochi Site", room: "Auditorium A", learners: 22, capacity: 30, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
+  { id: "LEC-1801", label: "Safety Induction & HSE Standards", sessionType: "Safety Induction", category: "Safety", client: "Marcus Vance", date: "2026-11-17", dateLabel: "Tue, 17 Nov", dayName: "Tuesday", dayNum: 17, start: "09:30", end: "11:30", time: "09:30 AM - 11:30 AM", dur: 120, site: "Kochi Site", room: "Main Training Hall", learners: 26, capacity: 30, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
+  { id: "LEC-1901", label: "Quality Fundamentals Workshop", sessionType: "Quality Standards", category: "Quality", client: "Aisha Siddiqui", date: "2026-11-18", dateLabel: "Wed, 18 Nov", dayName: "Wednesday", dayNum: 18, start: "10:00", end: "12:00", time: "10:00 AM - 12:00 PM", dur: 120, site: "Kochi Site", room: "Boardroom 2", learners: 15, capacity: 20, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
+  { id: "LEC-2001", label: "Harbor Tug Maneuver & Escort Drills", sessionType: "Marine Training", category: "Marine", client: "Carlos Mendez", date: "2026-11-20", dateLabel: "Fri, 20 Nov", dayName: "Friday", dayNum: 20, start: "11:00", end: "13:30", time: "11:00 AM - 01:30 PM", dur: 150, site: "Kochi Site", room: "Marine Ops Basin", learners: 10, capacity: 12, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
+  { id: "LEC-2101", label: "RTG Heavy Lifter Advanced Simulation", sessionType: "Technical Training", category: "Technical", client: "Deepa Krishnan", date: "2026-11-21", dateLabel: "Sat, 21 Nov", dayName: "Saturday", dayNum: 21, start: "09:00", end: "11:30", time: "09:00 AM - 11:30 AM", dur: 150, site: "Kochi Site", room: "Sim Bay 1", learners: 14, capacity: 16, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
+  { id: "LEC-2201", label: "High-Voltage Shore Power Connectivity", sessionType: "Technical Training", category: "Technical", client: "Arjun Das", date: "2026-11-23", dateLabel: "Mon, 23 Nov", dayName: "Monday", dayNum: 23, start: "10:00", end: "12:00", time: "10:00 AM - 12:00 PM", dur: 120, site: "Kochi Site", room: "Cold Ironing Substation", learners: 12, capacity: 15, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
+  { id: "LEC-2301", label: "Automated Gate OCR & License Plate Audit", sessionType: "Logistics Training", category: "Logistics", client: "Pooja Sharma", date: "2026-11-24", dateLabel: "Tue, 24 Nov", dayName: "Tuesday", dayNum: 24, start: "14:00", end: "16:00", time: "02:00 PM - 04:00 PM", dur: 120, site: "Kochi Site", room: "North Ingate Cabin", learners: 16, capacity: 20, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
+  { id: "LEC-2401", label: "Personal Training - Fall Arrest Systems", sessionType: "Personal Training", category: "Safety", client: "John Doe", date: "2026-11-26", dateLabel: "Thu, 26 Nov", dayName: "Thursday", dayNum: 26, start: "18:00", end: "19:00", time: "06:00 PM - 07:00 PM", dur: 60, site: "Kochi Site", room: "Tower Rig Rigging Yard", learners: 1, capacity: 1, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
+  { id: "LEC-2402", label: "Personal Training - Crane Anti-Sway", sessionType: "Personal Training", category: "Technical", client: "Sarah Patel", date: "2026-11-26", dateLabel: "Thu, 26 Nov", dayName: "Thursday", dayNum: 26, start: "19:00", end: "20:00", time: "07:00 PM - 08:00 PM", dur: 60, site: "Kochi Site", room: "Simulator Lab A", learners: 1, capacity: 1, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
+  { id: "LEC-2501", label: "Personal Training - Electric Forklift", sessionType: "Personal Training", category: "Technical", client: "Rahul Shah", date: "2026-11-27", dateLabel: "Fri, 27 Nov", dayName: "Friday", dayNum: 27, start: "18:00", end: "19:00", time: "06:00 PM - 07:00 PM", dur: 60, site: "Kochi Site", room: "Yard Workshop 3", learners: 1, capacity: 1, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
+  { id: "LEC-2601", label: "Root Cause Analysis for Yard Incidents", sessionType: "Safety Training", category: "Safety", client: "Operations Crew", date: "2026-11-28", dateLabel: "Sat, 28 Nov", dayName: "Saturday", dayNum: 28, start: "11:00", end: "13:00", time: "11:00 AM - 01:00 PM", dur: 120, site: "Kochi Site", room: "HSE Conference Suite", learners: 20, capacity: 24, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
+  { id: "LEC-2701", label: "Mobile Harbor Crane Multi-Rope Hoisting", sessionType: "Technical Training", category: "Technical", client: "Terminal Staff", date: "2026-11-30", dateLabel: "Mon, 30 Nov", dayName: "Monday", dayNum: 30, start: "13:30", end: "15:30", time: "01:30 PM - 03:30 PM", dur: 120, site: "Kochi Site", room: "Heavy Lift Berth 1", learners: 12, capacity: 15, status: "pending", denialReason: null, trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
 
   // ======================================================================
   // --- OCTOBER 2026 FULL MONTH SCHEDULE (NEXT MONTH) ---
@@ -158,7 +161,7 @@ const FULL_MONTH_LECTURES = [
   { id: "LEC-OCT-2701", label: "Root Cause Analysis for Yard Incidents", sessionType: "Safety Training", category: "Safety", client: "Operations Crew", date: "2026-10-27", dateLabel: "Tue, 27 Oct", dayName: "Tuesday", dayNum: 27, start: "11:00", end: "13:00", time: "11:00 AM - 01:00 PM", dur: 120, site: "Kochi Site", room: "HSE Conference Suite", learners: 20, capacity: 24, status: "confirmed", trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
   { id: "LEC-OCT-2801", label: "Safety Induction & HSE Standards", sessionType: "Safety Induction", category: "Safety", client: "Marcus Vance", date: "2026-10-28", dateLabel: "Wed, 28 Oct", dayName: "Wednesday", dayNum: 28, start: "09:30", end: "11:30", time: "09:30 AM - 11:30 AM", dur: 120, site: "Kochi Site", room: "Main Training Hall", learners: 26, capacity: 30, status: "confirmed", trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
   { id: "LEC-OCT-2901", label: "Personal Training - Crane Anti-Sway", sessionType: "Personal Training", category: "Technical", client: "Sarah Patel", date: "2026-10-29", dateLabel: "Thu, 29 Oct", dayName: "Thursday", dayNum: 29, start: "19:00", end: "20:00", time: "07:00 PM - 08:00 PM", dur: 60, site: "Kochi Site", room: "Simulator Lab A", learners: 1, capacity: 1, status: "confirmed", trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
-  { id: "LEC-OCT-3001", label: "Personal Training - Electric Forklift", sessionType: "Personal Training", category: "Technical", client: "Rahul Shah", date: "2026-10-30", dateLabel: "Fri, 30 Oct", dayName: "Friday", dayNum: 30, start: "18:00", end: "19:00", time: "06:00 PM - 07:00 PM", dur: 60, site: "Kochi Site", room: "Yard Workshop 3", learners: 1, capacity: 1, status: "confirmed", trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
+  { id: "LEC-OCT-3001", label: "Personal Training - Electric Forklift", sessionType: "Personal Training", category: "Technical", client: "Rahul Shah", date: "2026-10-28", dateLabel: "Wed, 28 Oct", dayName: "Wednesday", dayNum: 28, start: "18:00", end: "19:00", time: "06:00 PM - 07:00 PM", dur: 60, site: "Kochi Site", room: "Yard Workshop 3", learners: 1, capacity: 1, status: "confirmed", trainerName: "Ramesh Patel", trainerRole: "Senior Technical Trainer", trainerAvatar: "RP" },
 
   // ======================================================================
   // --- AUGUST 2026 SCHEDULE (PREVIOUS MONTH) ---
@@ -179,7 +182,7 @@ const INITIAL_NOTIFICATIONS = [
     title: "Punch In Available",
     message: "RTG Crane Automation & Control Systems · 09:00 AM",
     time: "10m ago",
-    date: "2026-09-17",
+    date: TODAY_DATE,
     unread: true,
     sessionId: "LEC-1701",
     actionLabel: "Go to Session",
@@ -191,7 +194,7 @@ const INITIAL_NOTIFICATIONS = [
     title: "Today you have 2 sessions",
     message: "09:00 AM and 02:00 PM",
     time: "07:30 AM",
-    date: "2026-09-17",
+    date: TODAY_DATE,
     unread: true,
     actionLabel: "View Schedule",
     targetMode: "day",
@@ -200,10 +203,10 @@ const INITIAL_NOTIFICATIONS = [
     id: "notif-3",
     type: "schedule-month",
     category: "Schedule Updated",
-    title: "September Schedule Active",
-    message: "37 lectures assigned",
+    title: "New Schedule Published",
+    message: "30 Oct – 30 Nov 2026 · 25 sessions to confirm",
     time: "Yesterday",
-    date: "2026-09-16",
+    date: "2026-10-29",
     unread: false,
     actionLabel: "Open Month",
     targetMode: "month",
@@ -215,7 +218,7 @@ const INITIAL_NOTIFICATIONS = [
     title: "Room Changed",
     message: "Crane Safety Refresher moved to Auditorium A",
     time: "2 days ago",
-    date: "2026-09-15",
+    date: "2026-10-28",
     unread: false,
     sessionId: "LEC-1702",
     actionLabel: "Check Details",
@@ -227,34 +230,34 @@ const INITIAL_LEAVE_REQUESTS = [
   {
     id: "LEV-101",
     type: "Casual Leave",
-    startDate: "2026-09-24",
-    endDate: "2026-09-25",
+    startDate: "2026-11-06",
+    endDate: "2026-11-07",
     days: 2,
     reason: "Family personal commitment in Ernakulam.",
     status: "Approved",
-    submittedAt: "14 Sep 2026",
+    submittedAt: "27 Oct 2026",
     reviewerNote: "Approved by Site Operations Lead",
   },
   {
     id: "LEV-102",
     type: "Sick / Medical Leave",
-    startDate: "2026-09-10",
-    endDate: "2026-09-10",
+    startDate: "2026-10-23",
+    endDate: "2026-10-23",
     days: 1,
     reason: "Medical dental appointment and recovery.",
     status: "Approved",
-    submittedAt: "08 Sep 2026",
+    submittedAt: "21 Oct 2026",
     reviewerNote: "Medical fitness certificate verified",
   },
   {
     id: "LEV-103",
     type: "Privileged Leave",
-    startDate: "2026-10-05",
-    endDate: "2026-10-08",
+    startDate: "2026-11-17",
+    endDate: "2026-11-20",
     days: 4,
     reason: "Annual planned festival vacation.",
     status: "Pending",
-    submittedAt: "16 Sep 2026",
+    submittedAt: "29 Oct 2026",
     reviewerNote: "Under review with Rostering Committee",
   },
 ];
@@ -386,10 +389,9 @@ const INITIAL_TRAINER = {
 
 // -- Trainer Confirmation & Attendance Flow -----------------------------
 // Flow: Whole-Schedule Confirmation (Stage 1, once) -> per-session
-// Confirmation opening 24h before start (Stage 2) -> Punch In -> Punch Out.
+// Confirmation opening 12h before start (Stage 2) -> Punch In -> Punch Out.
 // Declining at either stage requires a reason. Attendance is derived from
 // completed punches, never a separate manually-set field.
-const TODAY_DATE = "2026-09-17";
 
 function buildInitialSessionState() {
   const map = {};
@@ -565,7 +567,7 @@ function HomeScreen({
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <Calendar size={16} color={COLOR.primary200} />
           <span style={{ fontSize: 14, fontWeight: 700, color: COLOR.white }}>
-            Thursday, 17 September 2026
+            {formatLongDate(TODAY_DATE)}
           </span>
         </div>
         <span
@@ -1663,11 +1665,11 @@ function ScheduleScreen({
 function LeaveScreen({ leaveRequests, onSubmitLeave, leaveBalance, onOpenNotifications, onOpenProfile, unreadCount = 0 }) {
   const [leaveTab, setLeaveTab] = useState("apply");
   const [leaveType, setLeaveType] = useState("Casual Leave");
-  const [startDate, setStartDate] = useState("2026-09-24");
-  const [endDate, setEndDate] = useState("2026-09-24");
+  const [startDate, setStartDate] = useState("2026-11-02");
+  const [endDate, setEndDate] = useState("2026-11-02");
   const [reason, setReason] = useState("");
   const [submitSuccess, setSubmitSuccess] = useState(false);
-  const [calMonth, setCalMonth] = useState(9); // September
+  const [calMonth, setCalMonth] = useState(TODAY_DATE.slice(0, 7)); // "YYYY-MM", opens on the current month
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -1678,14 +1680,21 @@ function LeaveScreen({ leaveRequests, onSubmitLeave, leaveBalance, onOpenNotific
     setTimeout(() => { setSubmitSuccess(false); setLeaveTab("requests"); }, 1200);
   };
 
-  // Leave Calendar — mark leave dates in September
+  // Leave Calendar — every day of each request, keyed by ISO date
   const leaveCalDates = leaveRequests.reduce((acc, req) => {
-    if (req.startDate && req.startDate.startsWith("2026-09")) acc[parseInt(req.startDate.split("-")[2])] = req.status;
+    if (!req.startDate) return acc;
+    for (let d = new Date(`${req.startDate}T00:00:00`), end = new Date(`${req.endDate || req.startDate}T00:00:00`); d <= end; d.setDate(d.getDate() + 1)) {
+      acc[`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`] = req.status;
+    }
     return acc;
   }, {});
+  const [calY, calM] = calMonth.split("-").map(Number);
+  const calDays = new Date(calY, calM, 0).getDate();
+  const calLead = (new Date(calY, calM - 1, 1).getDay() + 6) % 7; // Monday-first blanks
+  const shiftCalMonth = (n) => { const d = new Date(calY, calM - 1 + n, 1); setCalMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`); };
 
   // Holiday Calendar — group by upcoming
-  const upcomingHolidays = COMPANY_HOLIDAYS_2026.filter(h => h.date >= "2026-09-17");
+  const upcomingHolidays = COMPANY_HOLIDAYS_2026.filter(h => h.date >= TODAY_DATE);
 
   const tabStyle = (id) => ({
     flex: 1, padding: "8px 0", border: 0, borderRadius: RADIUS.pill,
@@ -1907,7 +1916,9 @@ function LeaveScreen({ leaveRequests, onSubmitLeave, leaveBalance, onOpenNotific
       {leaveTab === "calendar" && (
         <div style={{ background: COLOR.white, borderRadius: RADIUS.card, padding: "16px", border: `1px solid ${COLOR.ink200}`, boxShadow: SHADOW.card }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <span style={{ fontSize: 15, fontWeight: 700, color: COLOR.ink950 }}>September 2026</span>
+            <button type="button" onClick={() => shiftCalMonth(-1)} style={{ border: 0, background: "transparent", cursor: "pointer", fontSize: 18, color: COLOR.primary, padding: "0 6px" }}>‹</button>
+            <span style={{ fontSize: 15, fontWeight: 700, color: COLOR.ink950 }}>{MONTH_NAMES[calM - 1]} {calY}</span>
+            <button type="button" onClick={() => shiftCalMonth(1)} style={{ border: 0, background: "transparent", cursor: "pointer", fontSize: 18, color: COLOR.primary, padding: "0 6px" }}>›</button>
           </div>
 
           {/* Day headers */}
@@ -1919,12 +1930,12 @@ function LeaveScreen({ leaveRequests, onSubmitLeave, leaveBalance, onOpenNotific
 
           {/* Calendar grid */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
-            <div style={{ height: 42 }} /> {/* blank Monday */}
-            {Array.from({ length: 30 }, (_, i) => i + 1).map(day => {
-              const dateIso = `2026-09-${String(day).padStart(2, "0")}`;
-              const leaveStatus = leaveCalDates[day];
+            {Array.from({ length: calLead }, (_, i) => <div key={`b${i}`} style={{ height: 42 }} />)}
+            {Array.from({ length: calDays }, (_, i) => i + 1).map(day => {
+              const dateIso = `${calMonth}-${String(day).padStart(2, "0")}`;
+              const leaveStatus = leaveCalDates[dateIso];
               const isHoliday = COMPANY_HOLIDAYS_2026.some(h => h.date === dateIso);
-              const isToday = day === 17;
+              const isToday = dateIso === TODAY_DATE;
               return (
                 <div key={day} style={{
                   height: 42, borderRadius: RADIUS.sm,
@@ -1958,7 +1969,7 @@ function LeaveScreen({ leaveRequests, onSubmitLeave, leaveBalance, onOpenNotific
       {leaveTab === "holidays" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {COMPANY_HOLIDAYS_2026.map(holiday => {
-            const isPast = holiday.date < "2026-09-17";
+            const isPast = holiday.date < TODAY_DATE;
             const isNext = upcomingHolidays[0]?.id === holiday.id;
             // National = navy, festival = red, everything else = blue; next holiday filled solid
             const hue = holiday.type.startsWith("National")
@@ -3110,6 +3121,7 @@ function SessionDetailSheet({
 }) {
   const [showDeclineBox, setShowDeclineBox] = useState(false);
   const [declineDraft, setDeclineDraft] = useState("");
+  const [declineNominee, setDeclineNominee] = useState(null);
 
   useEffect(() => {
     setShowDeclineBox(false);
@@ -3118,11 +3130,12 @@ function SessionDetailSheet({
 
   if (!session || !sessionState) return null;
 
-  const { stage1, stage1Reason, stage2, stage2Reason, punch } = sessionState;
+  const { stage1, stage1Reason, stage2, stage2Reason, stage2Nominee, punch } = sessionState;
+  const nominee = stage2Nominee || session.recommendedColleague;
 
   const submitDecline = () => {
     if (!declineDraft.trim()) return;
-    onStage2Decline(session.id, declineDraft.trim());
+    onStage2Decline(session.id, declineDraft.trim(), declineNominee);
     setShowDeclineBox(false);
   };
 
@@ -3243,6 +3256,7 @@ function SessionDetailSheet({
             }}
           >
             <strong>Declined:</strong> {stage2 === "declined" ? stage2Reason : stage1Reason}
+            {nominee && <div style={{ marginTop: 4 }}><strong>Recommended:</strong> {colleagueName(nominee)}</div>}
           </div>
         ) : isNotOpen ? (
           <div
@@ -3255,7 +3269,7 @@ function SessionDetailSheet({
               color: COLOR.textSecondary,
             }}
           >
-            Confirmation opens 24h before start
+            Confirmation opens 12h before start
           </div>
         ) : (
           <div
@@ -3422,9 +3436,10 @@ function SessionDetailSheet({
                         outline: "none",
                       }}
                     />
+                    <ColleagueRecommendations session={session} value={declineNominee} onChange={setDeclineNominee} />
                     <div style={{ display: "flex", gap: 8 }}>
                       <button
-                        onClick={() => { setShowDeclineBox(false); setDeclineDraft(""); }}
+                        onClick={() => { setShowDeclineBox(false); setDeclineDraft(""); setDeclineNominee(null); }}
                         style={{
                           flex: 1,
                           padding: "12px",
@@ -3641,7 +3656,7 @@ export default function TrainerMobileApp() {
   const demoData = usesDemoData(account);
   const [allLectures, setAllLectures] = useState(() => (demoData ? FULL_MONTH_LECTURES : []));
   const [trainer, setTrainer] = useState(INITIAL_TRAINER);
-  const [selectedDate, setSelectedDate] = useState("2026-09-17");
+  const [selectedDate, setSelectedDate] = useState(TODAY_DATE);
   const [scheduleMode, setScheduleMode] = useState("day"); // "day" | "month"
   const [notifications, setNotifications] = useState(() => (demoData ? INITIAL_NOTIFICATIONS : []));
   const [leaveRequests, setLeaveRequests] = useState(INITIAL_LEAVE_REQUESTS);
@@ -3675,7 +3690,7 @@ export default function TrainerMobileApp() {
   }, []);
 
   const septemberSessions = useMemo(() => {
-    return allLectures.filter((s) => s.date && s.date.startsWith("2026-09"));
+    return allLectures.filter((s) => inDemoCycle(s.date));
   }, [allLectures]);
 
   const septemberPendingCount = useMemo(() => {
@@ -3691,10 +3706,10 @@ export default function TrainerMobileApp() {
   );
   const cyclePendingCount = useMemo(() => cycleSessions.filter((s) => s.status === "pending").length, [cycleSessions]);
   const cycleStart = useMemo(
-    () => (demoData ? "2026-09-01" : cycleSessions.map((s) => s.date).sort()[0] ?? "2026-09-17"),
+    () => (demoData ? DEMO_CYCLE_START : cycleSessions.map((s) => s.date).sort()[0] ?? TODAY_DATE),
     [demoData, cycleSessions]
   );
-  const cycleLabel = useMemo(() => cycleLabelFor(demoData, cycleSessions), [demoData, cycleSessions]);
+  const cycleLabel = useMemo(() => cycleLabelFor(cycleSessions), [cycleSessions]);
 
   const toastTimer = useRef(null);
   const showToast = (msg) => {
@@ -3878,16 +3893,16 @@ export default function TrainerMobileApp() {
 
   const handleSimulateConfirmAllInScreen = () => {
     setAllLectures((prev) =>
-      prev.map((s) => (s.date && s.date.startsWith("2026-09") ? { ...s, status: "confirmed", denialReason: null } : s))
+      prev.map((s) => (inDemoCycle(s.date) ? { ...s, status: "confirmed", denialReason: null } : s))
     );
     setHasPendingScheduleConfirmation(true);
     setStartupWorkflow("startup");
-    showToast("✓ Changed 7 pending & 2 denied to Confirmed (24/24 Confirmed)");
+    showToast("✓ Changed 7 pending & 2 denied to Confirmed (25/25 Confirmed)");
   };
 
   const handleSimulateAllConfirmedLaunch = () => {
     setAllLectures((prev) =>
-      prev.map((s) => (s.date && s.date.startsWith("2026-09") ? { ...s, status: "confirmed" } : s))
+      prev.map((s) => (inDemoCycle(s.date) ? { ...s, status: "confirmed" } : s))
     );
     setHasPendingScheduleConfirmation(false);
     setStartupWorkflow(null);
@@ -3897,7 +3912,7 @@ export default function TrainerMobileApp() {
     showToast("Simulation: Launch direct to Home (all confirmed)");
   };
 
-  const handleUpdateSessionStatus = (sessionId, status, denialReason = null) => {
+  const handleUpdateSessionStatus = (sessionId, status, denialReason = null, nominee = null) => {
     setAllLectures((prev) =>
       prev.map((s) =>
         s.id === sessionId
@@ -3905,6 +3920,7 @@ export default function TrainerMobileApp() {
             ...s,
             status,
             denialReason: denialReason !== undefined ? denialReason : s.denialReason,
+            recommendedColleague: status === "denied" ? nominee : null,
           }
           : s
       )
@@ -3958,17 +3974,17 @@ export default function TrainerMobileApp() {
     showToast("✓ Schedule reviewed and confirmed!");
   };
 
-  // -- Stage 2: per-session confirmation (opens 24h before start) -------
+  // -- Stage 2: per-session confirmation (opens 12h before start) -------
   const handleStage2Confirm = (id) => {
     setSessionState((prev) => ({ ...prev, [id]: { ...prev[id], stage2: "confirmed" } }));
     setAllLectures((prev) => prev.map((l) => (l.id === id ? { ...l, status: "confirmed" } : l)));
     showToast("✓ Session confirmed. Punch In is now open.");
   };
 
-  const handleStage2Decline = (id, reason) => {
-    setSessionState((prev) => ({ ...prev, [id]: { ...prev[id], stage2: "declined", stage2Reason: reason } }));
+  const handleStage2Decline = (id, reason, nominee = null) => {
+    setSessionState((prev) => ({ ...prev, [id]: { ...prev[id], stage2: "declined", stage2Reason: reason, stage2Nominee: nominee } }));
     setAllLectures((prev) => prev.map((l) => (l.id === id ? { ...l, status: "denied", denialReason: reason } : l)));
-    showToast("Session declined.");
+    showToast(nominee ? `Session declined — recommended ${colleagueName(nominee)}` : "Session declined.");
   };
 
   // -- Punch In / Punch Out (per session) --------------------------------
@@ -4083,7 +4099,7 @@ export default function TrainerMobileApp() {
     } else if (notif.type === "schedule-day") {
       setActiveTab("schedule");
       setScheduleMode("day");
-      setSelectedDate("2026-09-17");
+      setSelectedDate(TODAY_DATE);
     }
   };
 
@@ -4103,7 +4119,10 @@ export default function TrainerMobileApp() {
 
   // Once today's session is punched out (completed), remove it from the hero card
   // and promote tomorrow's upcoming session to the hero card
-  const todayHero = todayPending[0] || null;
+  // A declined session never holds the hero card: it moves on to the day's next
+  // live session (confirm → punch in → punch out), else to tomorrow's.
+  const isDeclinedLec = (l) => l.status === "denied" || sessionState[l.id]?.stage1 === "declined" || sessionState[l.id]?.stage2 === "declined";
+  const todayHero = todayPending.filter((l) => !isDeclinedLec(l)).sort((a, b) => a.start.localeCompare(b.start))[0] || null;
   const nextUpcoming = allLectures.find((l) => l.date > TODAY_DATE && sessionState[l.id]?.punch?.status !== "completed") || null;
 
   const heroSession = todayHero || nextUpcoming || null;
@@ -4111,12 +4130,16 @@ export default function TrainerMobileApp() {
   const listSessions = todaySessionsAll.length > 0 ? todaySessionsAll : nextUpcoming ? [nextUpcoming] : [];
   const heroState = heroSession ? sessionState[heroSession.id] : null;
 
-  // Manual Stage 1 review scope: this week only (Mon 14 Sep – Sun 20 Sep).
-  const weekSessions = allLectures.filter((l) => l.date >= "2026-09-14" && l.date <= "2026-09-20");
+  // Manual Stage 1 review scope: this week only (Mon 26 Oct – Sun 1 Nov).
+  const weekSessions = allLectures.filter((l) => l.date >= "2026-10-26" && l.date <= "2026-11-01");
   // Home tiles: the demo account keeps its showcase numbers; others count their own sessions.
-  const loadHours = weekSessions.reduce((sum, l) => sum + (l.dur || 0), 0) / 60;
-  const homeLoadLabel = demoData ? undefined : `${loadHours.toFixed(1)}h`;
-  const homeMonthCount = demoData ? undefined : allLectures.filter((l) => l.date?.startsWith(TODAY_DATE.slice(0, 7))).length;
+  // Load: hours assigned today (declined sessions excluded) against the daily threshold.
+  const DAILY_LOAD_LIMIT_HOURS = 8;
+  const loadHours = todaySessionsAll.filter((l) => !isDeclinedLec(l)).reduce((sum, l) => sum + (l.dur || 0), 0) / 60;
+  const fmtHours = (h) => (Number.isInteger(h) ? String(h) : h.toFixed(1));
+  const homeLoadLabel = `${fmtHours(loadHours)}/${DAILY_LOAD_LIMIT_HOURS}h`;
+  // Demo: the month-long cycle (30 Oct – 30 Nov); others: sessions this calendar month.
+  const homeMonthCount = demoData ? cycleSessions.length : allLectures.filter((l) => l.date?.startsWith(TODAY_DATE.slice(0, 7))).length;
 
   // Attendance — always derived from completed/declined sessions, never set directly.
   const sessionsDueSoFar = allLectures.filter((l) => l.date <= TODAY_DATE);
@@ -4210,7 +4233,7 @@ export default function TrainerMobileApp() {
             gap: 6,
           }}
         >
-          <span>🚀 App Launch (24 Confirmed)</span>
+          <span>🚀 App Launch (25 Confirmed)</span>
         </button>
 
         <button
@@ -4250,7 +4273,7 @@ export default function TrainerMobileApp() {
             gap: 5,
           }}
         >
-          <span>↺ Reset (24 Confirmed)</span>
+          <span>↺ Reset (25 Confirmed)</span>
         </button>
       </div>
       )}
@@ -4437,7 +4460,6 @@ export default function TrainerMobileApp() {
                 />
               ) : hasPendingScheduleConfirmation && startupWorkflow === "startup" ? (
                 <StartupScheduleConfirmation
-                  monthName="September 2026"
                   sessions={cycleSessions}
                   monthName={cycleLabel}
                   onConfirmWholeMonth={handleStartupConfirmWholeMonth}
@@ -4528,7 +4550,8 @@ export default function TrainerMobileApp() {
                     <TrainerAuctionScreen
                       key={account?.email ?? "signed-out"}
                       trainer={trainer}
-                      showDemoLectures={demoData}
+                      buId={account?.buId ?? "BU-PORTS"}
+                      mySessions={allLectures}
                       showToast={showToast}
                       onOpenNotifications={() => setIsViewingNotifications(true)}
                       onAddNotification={(notif) => {
